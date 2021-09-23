@@ -4,6 +4,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
+//TODO: wifi bootloader
+
 #define REMOTE 17
 
 #define BUZZPIN 18
@@ -111,7 +113,6 @@ void setup() {
   Serial1.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
 
   vesc.setSerialPort(&Serial1);
-  vesc.setDebugPort(&Serial);
 
   xVescUartLock = xSemaphoreCreateMutex();
 
@@ -126,8 +127,18 @@ void setup() {
 
 void vMotorControl( void * pvParameters){
   while(1){
-    float speed = 0.96 - (analogRead(SPEED)) / 2048.0;  //scale from -1 to 1
-    float angle = (analogRead(ANGLE)) / 2048.0 - 0.84;  //scale from -1 to 1
+    float speed = (analogRead(SPEED)) / 2048.0 - 0.96;  //scale from -1 to 1
+    float angle = (analogRead(ANGLE)) / 1024.0 - 1.78;  //scale from -1 to 1
+
+    angle = constrain(angle, -1.5, 1.5);
+
+    // 10% deadzone
+    if abs(speed) < 0.1{
+      speed = 0;
+    }
+
+    // Throttle curve 
+    speed = (speed*speed*speed + speed*0.4)/1.4;
 
     float leftspeed;
     float rightspeed;
@@ -135,18 +146,29 @@ void vMotorControl( void * pvParameters){
     if (angle > 0) // turning right, slow right motor.
     {
 
-      leftspeed = speed - angle*speed;
-      rightspeed = speed;
+      leftspeed = speed; 
+      rightspeed = speed - angle*speed;
 
     } else {        //turn left, slow left motor.
 
-      leftspeed = speed;
-      rightspeed = speed + angle*speed;
+      leftspeed = speed + angle*speed;;
+      rightspeed = speed;
 
     }
 
     // make sure that no other task is using Serial1
     xSemaphoreTake(xVescUartLock, portMAX_DELAY);
+
+    /*
+    Serial.print(leftspeed);
+    Serial.print("\t , \t");
+    Serial.print(rightspeed);
+    Serial.print("\t | \t");
+    Serial.print(speed);
+    Serial.print("\t , \t");
+    Serial.println(angle);
+    */
+    
 
     // Set speed
     
@@ -158,6 +180,7 @@ void vMotorControl( void * pvParameters){
       vesc.setCurrent(0, VESC_2_ID);
     }
 
+    // return lock
     xSemaphoreGive(xVescUartLock);
 
     vTaskDelay( 50 / portTICK_PERIOD_MS );  
@@ -174,11 +197,7 @@ void vKey( void * pvParameters){
         case R_Lock:
           VescOn = false;
           digitalWrite(BUZZPIN, HIGH);
-          delay(50);
-          digitalWrite(BUZZPIN, LOW);
           delay(100);
-          digitalWrite(BUZZPIN, HIGH);
-          delay(150);
           digitalWrite(BUZZPIN, LOW);
           break;
 
@@ -192,7 +211,55 @@ void vKey( void * pvParameters){
           digitalWrite(BUZZPIN, LOW);
           VescOn = true;
           break;
+
+        case R_Bell:
+          digitalWrite(BUZZPIN, HIGH);
+          delay(100);
+          digitalWrite(BUZZPIN, LOW);
+          delay(300);
+
+          digitalWrite(BUZZPIN, HIGH);
+          delay(100);
+          digitalWrite(BUZZPIN, LOW);
+          delay(100);
+
+          digitalWrite(BUZZPIN, HIGH);
+          delay(100);
+          digitalWrite(BUZZPIN, LOW);
+          delay(100);
+
+          digitalWrite(BUZZPIN, HIGH);
+          delay(100);
+          digitalWrite(BUZZPIN, LOW);
+          delay(100);
+
+          digitalWrite(BUZZPIN, HIGH);
+          delay(100);
+          digitalWrite(BUZZPIN, LOW);
+          delay(300);
+
+          digitalWrite(BUZZPIN, HIGH);
+          delay(100);
+          digitalWrite(BUZZPIN, LOW);
+          delay(300);
+
+          digitalWrite(BUZZPIN, HIGH);
+          delay(100);
+          digitalWrite(BUZZPIN, LOW);
+          break;
         
+        case R_Power:
+          //TODO: Lights
+          digitalWrite(BUZZPIN, HIGH);
+          delay(500);
+          digitalWrite(BUZZPIN, LOW);
+          delay(100);
+
+          digitalWrite(BUZZPIN, HIGH);
+          delay(500);
+          digitalWrite(BUZZPIN, LOW);
+          break;
+
         default:
           break;
       }
