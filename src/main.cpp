@@ -3,6 +3,9 @@
 #include "driver/ledc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "ArduinoOTA.h"
+#include "WiFi.h"
+#include "ESPmDNS.h"
 
 //TODO: wifi bootloader
 
@@ -43,6 +46,8 @@ VescUart vesc;
 
 // bool to disable motors
 bool VescOn = true;
+
+bool mdns_setup = false;
 
 // Lock for Serial1, so that only one task uses it at a time.
 SemaphoreHandle_t xVescUartLock;
@@ -109,6 +114,41 @@ void setup() {
   lastrise = micros();
   lastfall = micros();
 
+  /*
+
+  WiFi.begin("CASELAB", "CaseLocalNet");
+
+  delay(1000);
+
+  ArduinoOTA
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      Serial.println("Start updating " + type);
+    })
+    .onEnd([]() {
+      Serial.println("\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+  
+  ArduinoOTA.begin();
+
+  */
+
   // Set up serial port for VESC communication
   Serial1.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
 
@@ -132,12 +172,12 @@ void vMotorControl( void * pvParameters){
 
     angle = constrain(angle, -1.5, 1.5);
 
-    // 10% deadzone
+    10% deadzone
     if(abs(speed) < 0.1){
       speed = 0;
     }
 
-    // Throttle curve 
+    Throttle curve 
     speed = (speed*speed*speed + speed*0.4)/1.4;
 
     float leftspeed;
@@ -159,7 +199,7 @@ void vMotorControl( void * pvParameters){
     // make sure that no other task is using Serial1
     xSemaphoreTake(xVescUartLock, portMAX_DELAY);
 
-    /*
+    
     Serial.print(leftspeed);
     Serial.print("\t , \t");
     Serial.print(rightspeed);
@@ -167,7 +207,7 @@ void vMotorControl( void * pvParameters){
     Serial.print(speed);
     Serial.print("\t , \t");
     Serial.println(angle);
-    */
+    
     
 
     // Set speed
@@ -272,5 +312,22 @@ void vKey( void * pvParameters){
 }
 
 void loop() {
-  vTaskDelay(portMAX_DELAY);
+  vTaskDelay(10000);
+  /*
+  if(WiFi.status() == WL_CONNECTED){
+    
+    if(!mdns_setup){
+      if (!MDNS.begin("bobby") && !mdns_setup) { 
+        Serial.println("Error setting up MDNS responder!");
+        while (1) {
+          delay(1000);
+        }
+      }
+      mdns_setup=true;
+    }
+    
+    ArduinoOTA.handle();
+  }
+  */
+
 }
