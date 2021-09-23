@@ -133,7 +133,7 @@ void vMotorControl( void * pvParameters){
     angle = constrain(angle, -1.5, 1.5);
 
     // 10% deadzone
-    if abs(speed) < 0.1{
+    if(abs(speed) < 0.1){
       speed = 0;
     }
 
@@ -173,11 +173,11 @@ void vMotorControl( void * pvParameters){
     // Set speed
     
     if(VescOn){
-      vesc.setDuty(0.3*leftspeed);
-      vesc.setDuty(0.3*rightspeed, VESC_2_ID);
+      vesc.setCurrent(20*leftspeed);
+      vesc.setCurrent(20*rightspeed, VESC_2_ID);
     }else{
-      vesc.setCurrent(0);
-      vesc.setCurrent(0, VESC_2_ID);
+      vesc.setDuty(0);
+      vesc.setDuty(0, VESC_2_ID);
     }
 
     // return lock
