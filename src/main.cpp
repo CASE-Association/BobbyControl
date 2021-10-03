@@ -172,12 +172,12 @@ void vMotorControl( void * pvParameters){
 
     angle = constrain(angle, -1.5, 1.5);
 
-    10% deadzone
-    if(abs(speed) < 0.1){
+    // 20% deadzone
+    if(abs(speed) < 0.2){
       speed = 0;
     }
 
-    Throttle curve 
+    // Throttle curve 
     speed = (speed*speed*speed + speed*0.4)/1.4;
 
     float leftspeed;
@@ -213,8 +213,8 @@ void vMotorControl( void * pvParameters){
     // Set speed
     
     if(VescOn){
-      vesc.setCurrent(20*leftspeed);
-      vesc.setCurrent(20*rightspeed, VESC_2_ID);
+      vesc.setDuty(leftspeed);
+      vesc.setDuty(rightspeed, VESC_2_ID);
     }else{
       vesc.setDuty(0);
       vesc.setDuty(0, VESC_2_ID);
