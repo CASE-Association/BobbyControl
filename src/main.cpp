@@ -6,6 +6,30 @@
 #include "ArduinoOTA.h"
 #include "WiFi.h"
 #include "ESPmDNS.h"
+#include "Adafruit_NeoPixel.h"
+#include "ESP32Tone.h"
+
+//Notes for playing songs.
+
+const int c = 261;
+const int d = 294;
+const int e = 329;
+const int f = 349;
+const int g = 391;
+const int gS = 415;
+const int a = 440;
+const int aS = 455;
+const int b = 466;
+const int cH = 523;
+const int cSH = 554;
+const int dH = 587;
+const int dSH = 622;
+const int eH = 659;
+const int fH = 698;
+const int fSH = 740;
+const int gH = 784;
+const int gSH = 830;
+const int aH = 880;
 
 //TODO: wifi bootloader
 
@@ -21,6 +45,8 @@
 #define RX_PIN 26   //GPIO 26
 #define TX_PIN 25   //GPIO 25
 
+Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(13, 19, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(13, 23, NEO_GRB + NEO_KHZ800);
 
 uint32_t remotevals[4] = {6342651, 3196923, 25217019, 12634107}; 
 String buttons[4] = {"Lock", "Unlock", "Bell", "Power"};
@@ -49,6 +75,12 @@ bool VescOn = true;
 
 bool mdns_setup = false;
 
+float speed;
+float angle;
+
+// bool to turn off lights
+int lightpattern = 1;
+
 // Lock for Serial1, so that only one task uses it at a time.
 SemaphoreHandle_t xVescUartLock;
 
@@ -58,8 +90,18 @@ TaskHandle_t xMotorControlHandle;
 // Task handle for key task
 TaskHandle_t xKeyHandle;
 
+// Task handle for key task
+TaskHandle_t xLightsHandle;
+
 void vMotorControl( void * pvParameters);
 void vKey( void * pvParameters);
+void vLights(void * pvParameters);
+
+uint32_t Wheel(byte WheelPos);
+
+void firstSection();
+void secondSection();
+void beep(int note, int duration);
 
 void IRAM_ATTR remote_ISR(){
   int b = digitalRead(REMOTE);
@@ -163,12 +205,15 @@ void setup() {
   xTaskCreate(&vKey, "Key", 1000, NULL, 5, &xKeyHandle);
 
   attachInterrupt(REMOTE, remote_ISR, CHANGE);
+
+  xTaskCreate(&vLights, "Lights", 1000, NULL, 2, &xLightsHandle);
+
 }
 
 void vMotorControl( void * pvParameters){
   while(1){
-    float speed = (analogRead(SPEED)) / 2048.0 - 0.96;  //scale from -1 to 1
-    float angle = (analogRead(ANGLE)) / 1024.0 - 1.78;  //scale from -1 to 1
+    speed = (analogRead(SPEED)) / 2048.0 - 0.96;  //scale from -1 to 1
+    angle = (analogRead(ANGLE)) / 1024.0 - 1.78;  //scale from -1 to 1
 
     angle = constrain(angle, -1.5, 1.5);
 
@@ -253,6 +298,13 @@ void vKey( void * pvParameters){
           break;
 
         case R_Bell:
+          //Play first section
+          firstSection();
+        
+          //Play second section
+          secondSection();
+
+          
           digitalWrite(BUZZPIN, HIGH);
           delay(100);
           digitalWrite(BUZZPIN, LOW);
@@ -289,15 +341,13 @@ void vKey( void * pvParameters){
           break;
         
         case R_Power:
-          //TODO: Lights
+          lightpattern++;
+
           digitalWrite(BUZZPIN, HIGH);
-          delay(500);
+          delay(100);
           digitalWrite(BUZZPIN, LOW);
           delay(100);
 
-          digitalWrite(BUZZPIN, HIGH);
-          delay(500);
-          digitalWrite(BUZZPIN, LOW);
           break;
 
         default:
@@ -308,6 +358,86 @@ void vKey( void * pvParameters){
       ISRupdate = 0; 
     }
     vTaskDelay(100 / portTICK_PERIOD_MS); 
+  }
+}
+
+
+void vLights(void * pvParameters){
+
+  uint8_t j = 0;
+
+  while(1){
+    if(lightpattern == 0){
+      for(int i=0; i< strip2.numPixels(); i++) {
+        strip1.setPixelColor(i, 0);
+        strip2.setPixelColor(i, 0);
+      }
+
+      strip1.show();
+      strip2.show();
+    }else if(lightpattern == 1){
+
+      for(int i=0; i< strip2.numPixels(); i++) {
+        strip1.setPixelColor(i, Wheel(((i * 256 / strip1.numPixels()) + j) & 255));
+        strip2.setPixelColor(i, Wheel(((i * 256 / strip2.numPixels()) + j) & 255));
+      }
+
+      strip1.show();
+      strip2.show();
+      j = j + 20;
+    }else if(lightpattern == 2){
+
+      for(int i=0; i< strip2.numPixels(); i++) {
+        strip1.setPixelColor(i, Wheel(((i * 128 / strip1.numPixels()) + j) & 255));
+        strip2.setPixelColor(i, Wheel(((-i * 128 / strip2.numPixels()) + j) & 255));
+      }
+
+      strip1.show();
+      strip2.show();
+      j = j + 10;
+
+    }else if(lightpattern==3){
+      for(int i=0; i< strip2.numPixels(); i++) {
+        strip1.setPixelColor(i, Wheel(j));
+        strip2.setPixelColor(i, Wheel(j+128));
+      }
+      strip1.show();
+      strip2.show();
+      j += 10;
+    }else if(lightpattern==4){
+
+      for(int i=0; i< strip2.numPixels(); i++) {
+        strip1.setPixelColor(i, strip1.Color(((13-j/16)<i)*200, ((13-j/16)<i)*20, 0));
+        strip2.setPixelColor(i, strip1.Color(((13-j/16)<i)*200, ((13-j/16)<i)*20, 0));
+      }
+
+      strip1.setPixelColor(13-j/16, strip1.Color(255, 0, 0));
+      strip2.setPixelColor(13-j/16, strip1.Color(255, 0, 0));
+      
+      strip1.setPixelColor(14-j/16, strip1.Color(200, 10, 0));
+      strip2.setPixelColor(14-j/16, strip1.Color(200, 10, 0));     
+
+      strip1.show();
+      strip2.show();
+      vTaskDelay(30);
+      j = j + speed*30 + 10;
+     }else if(lightpattern == 5){
+
+      uint32_t col = Wheel(random(255));
+
+      for(int i=0; i< strip2.numPixels(); i++) {
+        strip1.setPixelColor(i, col);
+        strip2.setPixelColor(i, col);
+      }
+
+      strip1.show();
+      strip2.show();
+      vTaskDelay(300-abs(angle)*200);
+      j = j + 10;
+    }else{
+      lightpattern=0;
+    }
+    vTaskDelay(30);
   }
 }
 
@@ -330,4 +460,84 @@ void loop() {
   }
   */
 
+}
+
+uint32_t Wheel(byte WheelPos) {
+  WheelPos = 255 - WheelPos;
+  if(WheelPos < 85) {
+    return strip1.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  }
+  if(WheelPos < 170) {
+    WheelPos -= 85;
+    return strip1.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+  WheelPos -= 170;
+  return strip1.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+
+void beep(int note, int duration)
+{
+  //Play tone on buzzerPin
+  tone(BUZZPIN, note, duration);
+ 
+  vTaskDelay(duration/2);
+ 
+  //Stop tone on buzzerPin
+  noTone(BUZZPIN);
+ 
+  vTaskDelay(10);
+}
+
+
+void firstSection()
+{
+  beep(a, 500);
+  beep(a, 500);    
+  beep(a, 500);
+  beep(f, 350);
+  beep(cH, 150);  
+  beep(a, 500);
+  beep(f, 350);
+  beep(cH, 150);
+  beep(a, 650);
+ 
+  vTaskDelay(500);
+ 
+  beep(eH, 500);
+  beep(eH, 500);
+  beep(eH, 500);  
+  beep(fH, 350);
+  beep(cH, 150);
+  beep(gS, 500);
+  beep(f, 350);
+  beep(cH, 150);
+  beep(a, 650);
+ 
+  vTaskDelay(500);
+}
+ 
+void secondSection()
+{
+  beep(aH, 500);
+  beep(a, 300);
+  beep(a, 150);
+  beep(aH, 500);
+  beep(gSH, 325);
+  beep(gH, 175);
+  beep(fSH, 125);
+  beep(fH, 125);    
+  beep(fSH, 250);
+ 
+  vTaskDelay(325);
+ 
+  beep(aS, 250);
+  beep(dSH, 500);
+  beep(dH, 325);  
+  beep(cSH, 175);  
+  beep(cH, 125);  
+  beep(b, 125);  
+  beep(cH, 250);  
+ 
+  vTaskDelay(350);
 }
