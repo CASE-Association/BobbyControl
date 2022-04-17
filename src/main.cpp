@@ -215,7 +215,7 @@ void vMotorControl( void * pvParameters){
     speed = (analogRead(SPEED)) / 2048.0 - 0.96;  //scale from -1 to 1
     angle = (analogRead(ANGLE)) / 1024.0 - 1.78;  //scale from -1 to 1
 
-    angle = constrain(angle, -1.5, 1.5);
+    angle = -constrain(angle, -1.5, 1.5);
 
     // 20% deadzone
     if(abs(speed) < 0.2){
