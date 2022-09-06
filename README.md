@@ -15,6 +15,7 @@ The pinout is defined at the top of main.c. The code to handle the different inp
 
 ### Improvements
 
+- [ ] Add software filtering to inputs to make driving more smooth.
 - [ ] Make a PCB for the ESP32 that has all the connectors needed, and also allows for future flexibility.
 - [ ] Split the code into multiple files to make it easier to read and to work with. 
 - [ ] Add more LED patterns and melodies.
